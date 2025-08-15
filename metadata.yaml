@@ -1,48 +1,140 @@
-name: job-template
-description: Template for SGNL JavaScript jobs - replace with your job description
+name: CAEP Assurance Level Change
+description: Transmits a Continuous Access Evaluation Protocol (CAEP) Assurance Level Change event as a Security Event Token (SET) to a specified endpoint
+version: 1.0.0
+runtime: nodejs-22
+type: caep-transmitter
 
-# Input parameters for web form generation
 inputs:
-  target:
+  audience:
     type: text
-    description: Target resource identifier (e.g., user email, group ID)
+    description: JWT audience claim - typically the CAEP event receiver's URL
+    required: true
+    validation:
+      min: 1
+      max: 500
+
+  subject:
+    type: text
+    description: JSON string containing the subject identifier in CAEP format
+    required: true
+    validation:
+      min: 1
+      max: 1000
+
+  address:
+    type: text
+    description: The URL endpoint to send the Security Event Token to
+    required: true
+    validation:
+      min: 1
+      max: 500
+
+  namespace:
+    type: text
+    description: The assurance level namespace (RFC8176, RFC6711, ISO-IEC-29115, NIST-IAL, NIST-AAL, NIST-FAL)
     required: true
     validation:
       min: 1
       max: 100
 
-  action:
+  currentLevel:
     type: text
-    description: Action to perform on the target resource
+    description: Current assurance level value
     required: true
     validation:
       min: 1
-      max: 50
+      max: 100
 
-  options:
-    type: array
-    description: Additional options for the operation
+  previousLevel:
+    type: text
+    description: Previous assurance level value (optional)
     required: false
-    item_type: text
     validation:
-      max: 10
+      min: 1
+      max: 100
 
-  dry_run:
-    type: boolean
-    description: Preview changes without executing them
+  changeDirection:
+    type: text
+    description: Direction of the assurance level change (increase or decrease)
     required: false
-    default: false
+    validation:
+      min: 1
+      max: 20
 
-# Expected output structure
+  issuer:
+    type: text
+    description: JWT issuer claim - defaults to 'https://sgnl.ai/'
+    required: false
+    validation:
+      min: 1
+      max: 200
+
+  addressSuffix:
+    type: text
+    description: Optional URL suffix to append to the address
+    required: false
+    validation:
+      min: 1
+      max: 200
+
+  signingMethod:
+    type: text
+    description: JWT signing algorithm - defaults to 'RS256'
+    required: false
+    validation:
+      min: 1
+      max: 20
+
+  eventTimestamp:
+    type: number
+    description: Unix timestamp of the event - defaults to current time
+    required: false
+
+  userAgent:
+    type: text
+    description: User-Agent header value - defaults to 'SGNL-Action-Framework/1.0'
+    required: false
+    validation:
+      min: 1
+      max: 200
+
+  initiatingEntity:
+    type: text
+    description: Optional entity that initiated the assurance level change
+    required: false
+    validation:
+      min: 1
+      max: 100
+
+  reasonAdmin:
+    type: text
+    description: Optional admin-readable reason for the change (JSON for i18n or plain string)
+    required: false
+    validation:
+      min: 1
+      max: 1000
+
+  reasonUser:
+    type: text
+    description: Optional user-readable reason for the change (JSON for i18n or plain string)
+    required: false
+    validation:
+      min: 1
+      max: 1000
+
 outputs:
   status:
     type: text
-    description: Operation result (success, failed, recovered, etc.)
+    description: Transmission status ('success' or 'failed')
 
-  target:
+  statusCode:
+    type: number
+    description: HTTP response status code
+
+  body:
     type: text
-    description: The target resource that was processed
+    description: HTTP response body
 
-  processed_at:
-    type: datetime
-    description: When the operation completed (ISO 8601)
+  retryable:
+    type: boolean
+    description: Whether the error is retryable (for failed requests)
