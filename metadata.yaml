@@ -5,25 +5,17 @@ runtime: nodejs-22
 type: caep-transmitter
 
 inputs:
-  audience:
-    type: text
-    description: JWT audience claim - typically the CAEP event receiver's URL
-    required: true
-    validation:
-      min: 1
-      max: 500
-
   subject:
     type: text
-    description: JSON string containing the subject identifier in CAEP format
+    description: Subject identifier JSON (e.g., {"format":"email","email":"user@example.com"})
     required: true
     validation:
       min: 1
-      max: 1000
+      max: 2000
 
-  address:
+  audience:
     type: text
-    description: The URL endpoint to send the Security Event Token to
+    description: Intended recipient of the SET (e.g., https://customer.okta.com/)
     required: true
     validation:
       min: 1
@@ -31,13 +23,13 @@ inputs:
 
   namespace:
     type: text
-    description: The assurance level namespace (RFC8176, RFC6711, ISO-IEC-29115, NIST-IAL, NIST-AAL, NIST-FAL)
+    description: Assurance level namespace (RFC8176, RFC6711, ISO-IEC-29115, NIST-IAL, NIST-AAL, NIST-FAL)
     required: true
     validation:
       min: 1
       max: 100
 
-  currentLevel:
+  current_level:
     type: text
     description: Current assurance level value
     required: true
@@ -45,7 +37,7 @@ inputs:
       min: 1
       max: 100
 
-  previousLevel:
+  previous_level:
     type: text
     description: Previous assurance level value (optional)
     required: false
@@ -53,74 +45,67 @@ inputs:
       min: 1
       max: 100
 
-  changeDirection:
+  change_direction:
     type: text
     description: Direction of the assurance level change (increase or decrease)
     required: false
     validation:
-      min: 1
       max: 20
 
-  issuer:
+  initiating_entity:
     type: text
-    description: JWT issuer claim - defaults to 'https://sgnl.ai/'
+    description: Entity that initiated the assurance level change (optional)
     required: false
     validation:
-      min: 1
-      max: 200
+      max: 100
 
-  addressSuffix:
+  reason_admin:
     type: text
-    description: Optional URL suffix to append to the address
+    description: Admin-readable reason for the change (JSON for i18n or plain string)
     required: false
     validation:
-      min: 1
-      max: 200
+      max: 1000
 
-  signingMethod:
+  reason_user:
     type: text
-    description: JWT signing algorithm - defaults to 'RS256'
+    description: User-readable reason for the change (JSON for i18n or plain string)
     required: false
     validation:
-      min: 1
-      max: 20
+      max: 1000
 
-  eventTimestamp:
-    type: number
-    description: Unix timestamp of the event - defaults to current time
-    required: false
-
-  userAgent:
+  address:
     type: text
-    description: User-Agent header value - defaults to 'SGNL-Action-Framework/1.0'
-    required: false
-    validation:
-      min: 1
-      max: 200
-
-  initiatingEntity:
-    type: text
-    description: Optional entity that initiated the assurance level change
+    description: Optional destination URL override (defaults to ADDRESS environment variable)
     required: false
     validation:
       min: 1
       max: 100
 
-  reasonAdmin:
+secrets:
+  BEARER_AUTH_TOKEN:
     type: text
-    description: Optional admin-readable reason for the change (JSON for i18n or plain string)
+    description: Bearer token for authenticating with the SET receiver
     required: false
-    validation:
-      min: 1
-      max: 1000
 
-  reasonUser:
+  BASIC_USERNAME:
     type: text
-    description: Optional user-readable reason for the change (JSON for i18n or plain string)
+    description: Username for Basic authentication
     required: false
-    validation:
-      min: 1
-      max: 1000
+
+  BASIC_PASSWORD:
+    type: text
+    description: Password for Basic authentication
+    required: false
+
+  OAUTH2_CLIENT_CREDENTIALS_CLIENT_SECRET:
+    type: text
+    description: Client secret for OAuth2 Client Credentials flow
+    required: false
+
+  OAUTH2_AUTHORIZATION_CODE_ACCESS_TOKEN:
+    type: text
+    description: Access token for OAuth2 Authorization Code flow
+    required: false
 
 outputs:
   status:

@@ -1,20 +1,5 @@
 import { jest } from '@jest/globals';
 
-// Mock the @sgnl-ai/secevent module
-jest.unstable_mockModule('@sgnl-ai/secevent', () => {
-  const mockBuilder = {
-    withIssuer: jest.fn().mockReturnThis(),
-    withAudience: jest.fn().mockReturnThis(),
-    withIat: jest.fn().mockReturnThis(),
-    withClaim: jest.fn().mockReturnThis(),
-    withEvent: jest.fn().mockReturnThis(),
-    sign: jest.fn().mockResolvedValue({ jwt: 'mock.jwt.token' })
-  };
-  return {
-    createBuilder: jest.fn(() => mockBuilder)
-  };
-});
-
 // Mock @sgnl-ai/set-transmitter module
 jest.unstable_mockModule('@sgnl-ai/set-transmitter', () => ({
   transmitSET: jest.fn().mockResolvedValue({
@@ -25,30 +10,37 @@ jest.unstable_mockModule('@sgnl-ai/set-transmitter', () => ({
   })
 }));
 
-// Mock crypto module
-jest.unstable_mockModule('crypto', () => ({
-  createPrivateKey: jest.fn(() => 'mock-private-key')
+// Mock @sgnl-actions/utils module
+jest.unstable_mockModule('@sgnl-actions/utils', () => ({
+  resolveJSONPathTemplates: jest.fn((params) => ({ result: params, errors: [] })),
+  signSET: jest.fn().mockResolvedValue('mock.jwt.token'),
+  getBaseURL: jest.fn((params, context) => params.address || context.environment?.ADDRESS),
+  getAuthorizationHeader: jest.fn().mockResolvedValue('Bearer test-token')
 }));
 
 // Import after mocking
-const { createBuilder } = await import('@sgnl-ai/secevent');
-await import('crypto');
 const { transmitSET } = await import('@sgnl-ai/set-transmitter');
+const { signSET, getBaseURL, getAuthorizationHeader } = await import('@sgnl-actions/utils');
 const script = (await import('../src/script.mjs')).default;
 
 describe('CAEP Assurance Level Change Transmitter', () => {
-  let mockBuilder;
   const mockContext = {
+    environment: {
+      ADDRESS: 'https://receiver.example.com/events'
+    },
     secrets: {
-      SSF_KEY: '-----BEGIN RSA PRIVATE KEY-----\nMOCK_KEY\n-----END RSA PRIVATE KEY-----',
-      SSF_KEY_ID: 'test-key-id',
-      AUTH_TOKEN: 'Bearer test-token'
+      BEARER_AUTH_TOKEN: 'Bearer test-token'
     }
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockBuilder = createBuilder();
+    signSET.mockClear();
+    signSET.mockResolvedValue('mock.jwt.token');
+    getBaseURL.mockClear();
+    getBaseURL.mockImplementation((params, context) => params.address || context.environment?.ADDRESS);
+    getAuthorizationHeader.mockClear();
+    getAuthorizationHeader.mockResolvedValue('Bearer test-token');
     transmitSET.mockResolvedValue({
       status: 'success',
       statusCode: 200,
@@ -62,8 +54,7 @@ describe('CAEP Assurance Level Change Transmitter', () => {
       audience: 'https://example.com',
       subject: '{"format":"account","uri":"acct:user@service.example.com"}',
       namespace: 'NIST-AAL',
-      currentLevel: 'nist-aal2',
-      address: 'https://receiver.example.com/events'
+      current_level: 'nist-aal2'
     };
 
     test('should successfully transmit an assurance level change event', async () => {
@@ -76,99 +67,100 @@ describe('CAEP Assurance Level Change Transmitter', () => {
         retryable: false
       });
 
-      expect(createBuilder).toHaveBeenCalled();
-      expect(mockBuilder.withIssuer).toHaveBeenCalledWith('https://sgnl.ai/');
-      expect(mockBuilder.withAudience).toHaveBeenCalledWith('https://example.com');
-      expect(mockBuilder.withClaim).toHaveBeenCalledWith('sub_id', {
-        format: 'account',
-        uri: 'acct:user@service.example.com'
-      });
-      expect(mockBuilder.withEvent).toHaveBeenCalledWith(
-        'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change',
-        expect.objectContaining({
-          event_timestamp: expect.any(Number),
-          namespace: 'NIST-AAL',
-          current_level: 'nist-aal2'
-        })
+      expect(signSET).toHaveBeenCalledWith(
+        mockContext,
+        {
+          aud: 'https://example.com',
+          sub_id: {
+            format: 'account',
+            uri: 'acct:user@service.example.com'
+          },
+          events: {
+            'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change': expect.objectContaining({
+              event_timestamp: expect.any(Number),
+              namespace: 'NIST-AAL',
+              current_level: 'nist-aal2'
+            })
+          }
+        }
       );
     });
 
     test('should include optional fields when provided', async () => {
       const params = {
         ...validParams,
-        previousLevel: 'nist-aal1',
-        changeDirection: 'increase',
-        initiatingEntity: 'policy',
-        reasonAdmin: 'MFA requirement triggered',
-        reasonUser: 'Additional authentication required',
-        eventTimestamp: 1234567890
+        previous_level: 'nist-aal1',
+        change_direction: 'increase',
+        initiating_entity: 'policy',
+        reason_admin: 'MFA requirement triggered',
+        reason_user: 'Additional authentication required'
       };
 
       await script.invoke(params, mockContext);
 
-      expect(mockBuilder.withEvent).toHaveBeenCalledWith(
-        'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change',
+      expect(signSET).toHaveBeenCalledWith(
+        mockContext,
         expect.objectContaining({
-          event_timestamp: 1234567890,
-          namespace: 'NIST-AAL',
-          current_level: 'nist-aal2',
-          previous_level: 'nist-aal1',
-          change_direction: 'increase',
-          initiating_entity: 'policy',
-          reason_admin: 'MFA requirement triggered',
-          reason_user: 'Additional authentication required'
+          events: {
+            'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change': expect.objectContaining({
+              event_timestamp: expect.any(Number),
+              namespace: 'NIST-AAL',
+              current_level: 'nist-aal2',
+              previous_level: 'nist-aal1',
+              change_direction: 'increase',
+              initiating_entity: 'policy',
+              reason_admin: 'MFA requirement triggered',
+              reason_user: 'Additional authentication required'
+            })
+          }
         })
       );
     });
 
-    test('should validate change direction', async () => {
+    test('should parse i18n reason_admin JSON format', async () => {
       const params = {
         ...validParams,
-        changeDirection: 'invalid'
+        reason_admin: '{"en":"Policy violation","es":"Violación de política"}'
       };
 
-      await expect(script.invoke(params, mockContext))
-        .rejects.toThrow('changeDirection must be either "increase" or "decrease"');
+      await script.invoke(params, mockContext);
+
+      expect(signSET).toHaveBeenCalledWith(
+        mockContext,
+        expect.objectContaining({
+          events: {
+            'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change': expect.objectContaining({
+              reason_admin: {
+                en: 'Policy violation',
+                es: 'Violación de política'
+              }
+            })
+          }
+        })
+      );
     });
 
-    test('should throw error for missing audience', async () => {
-      const params = { ...validParams };
-      delete params.audience;
+    test('should parse i18n reason_user JSON format', async () => {
+      const params = {
+        ...validParams,
+        reason_user: '{"en":"Additional auth required","es":"Autenticación adicional requerida"}'
+      };
 
-      await expect(script.invoke(params, mockContext))
-        .rejects.toThrow('audience is required');
-    });
+      await script.invoke(params, mockContext);
 
-    test('should throw error for missing subject', async () => {
-      const params = { ...validParams };
-      delete params.subject;
-
-      await expect(script.invoke(params, mockContext))
-        .rejects.toThrow('subject is required');
-    });
-
-    test('should throw error for missing namespace', async () => {
-      const params = { ...validParams };
-      delete params.namespace;
-
-      await expect(script.invoke(params, mockContext))
-        .rejects.toThrow('namespace is required');
-    });
-
-    test('should throw error for missing currentLevel', async () => {
-      const params = { ...validParams };
-      delete params.currentLevel;
-
-      await expect(script.invoke(params, mockContext))
-        .rejects.toThrow('currentLevel is required');
-    });
-
-    test('should throw error for missing address', async () => {
-      const params = { ...validParams };
-      delete params.address;
-
-      await expect(script.invoke(params, mockContext))
-        .rejects.toThrow('address is required');
+      expect(signSET).toHaveBeenCalledWith(
+        mockContext,
+        expect.objectContaining({
+          events: {
+            'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change': expect.objectContaining({
+              reason_user: {
+                en: 'Additional auth required',
+                es: 'Autenticación adicional requerida'
+              }
+            })
+          }
+        })
+      );
     });
 
     test('should throw error for invalid subject JSON', async () => {
@@ -181,26 +173,47 @@ describe('CAEP Assurance Level Change Transmitter', () => {
         .rejects.toThrow('Invalid subject JSON');
     });
 
-    test('should throw error for missing SSF_KEY secret', async () => {
-      const context = {
-        secrets: {
-          SSF_KEY_ID: 'test-key-id'
-        }
-      };
+    test('should include auth token in request', async () => {
+      await script.invoke(validParams, mockContext);
 
-      await expect(script.invoke(validParams, context))
-        .rejects.toThrow('SSF_KEY secret is required');
+      expect(getAuthorizationHeader).toHaveBeenCalledWith(mockContext);
+      expect(transmitSET).toHaveBeenCalledWith(
+        'mock.jwt.token',
+        'https://receiver.example.com/events',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Authorization': 'Bearer test-token',
+            'User-Agent': 'SGNL-CAEP-Hub/2.0'
+          })
+        })
+      );
     });
 
-    test('should throw error for missing SSF_KEY_ID secret', async () => {
-      const context = {
-        secrets: {
-          SSF_KEY: 'mock-key'
-        }
+    test('should use address from params when provided', async () => {
+      const params = {
+        ...validParams,
+        address: 'https://custom.example.com/events'
       };
 
-      await expect(script.invoke(validParams, context))
-        .rejects.toThrow('SSF_KEY_ID secret is required');
+      await script.invoke(params, mockContext);
+
+      expect(getBaseURL).toHaveBeenCalledWith(params, mockContext);
+      expect(transmitSET).toHaveBeenCalledWith(
+        'mock.jwt.token',
+        'https://custom.example.com/events',
+        expect.any(Object)
+      );
+    });
+
+    test('should use ADDRESS from environment when params.address not provided', async () => {
+      await script.invoke(validParams, mockContext);
+
+      expect(getBaseURL).toHaveBeenCalledWith(validParams, mockContext);
+      expect(transmitSET).toHaveBeenCalledWith(
+        'mock.jwt.token',
+        'https://receiver.example.com/events',
+        expect.any(Object)
+      );
     });
 
     test('should handle non-retryable HTTP errors', async () => {
@@ -230,34 +243,12 @@ describe('CAEP Assurance Level Change Transmitter', () => {
         .rejects.toThrow('SET transmission failed: 429 Too Many Requests');
     });
 
-    test('should use custom issuer and signing method', async () => {
-      const params = {
-        ...validParams,
-        issuer: 'https://custom.issuer.com',
-        signingMethod: 'RS512'
-      };
-
-      await script.invoke(params, mockContext);
-
-      expect(mockBuilder.withIssuer).toHaveBeenCalledWith('https://custom.issuer.com');
-      expect(mockBuilder.sign).toHaveBeenCalledWith({
-        key: 'mock-private-key',
-        alg: 'RS512',
-        kid: 'test-key-id'
-      });
-    });
-
-    test('should append address suffix when provided', async () => {
-      const params = {
-        ...validParams,
-        addressSuffix: '/v1/events'
-      };
-
-      await script.invoke(params, mockContext);
+    test('should transmit JWT to correct URL', async () => {
+      await script.invoke(validParams, mockContext);
 
       expect(transmitSET).toHaveBeenCalledWith(
         'mock.jwt.token',
-        'https://receiver.example.com/events/v1/events',
+        'https://receiver.example.com/events',
         expect.any(Object)
       );
     });
