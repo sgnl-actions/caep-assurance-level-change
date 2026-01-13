@@ -1,8 +1,5 @@
 name: CAEP Assurance Level Change
 description: Transmits a Continuous Access Evaluation Protocol (CAEP) Assurance Level Change event as a Security Event Token (SET) to a specified endpoint
-version: 1.0.0
-runtime: nodejs-22
-type: caep-transmitter
 
 inputs:
   subject:
@@ -97,3 +94,4 @@ outputs:
   retryable:
     type: boolean
     description: Whether the error is retryable (for failed requests)
+
