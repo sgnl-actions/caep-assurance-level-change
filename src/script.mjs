@@ -1,9 +1,8 @@
 import { transmitSET } from '@sgnl-ai/set-transmitter';
-import { resolveJSONPathTemplates, signSET, getBaseURL, getAuthorizationHeader } from '@sgnl-actions/utils';
+import { signSET, getBaseURL, getAuthorizationHeader } from '@sgnl-actions/utils';
 
 // Event type constant
 const ASSURANCE_LEVEL_CHANGE_EVENT = 'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change';
-
 
 /**
  * Parse subject JSON string
@@ -77,47 +76,40 @@ export default {
    * @returns {Object} Transmission result with status, statusCode, body, and retryable flag
    */
   invoke: async (params, context) => {
-    const jobContext = context.data || {};
 
-    // Resolve JSONPath templates in params
-    const { result: resolvedParams, errors } = resolveJSONPathTemplates(params, jobContext);
-    if (errors.length > 0) {
-      console.warn('Template resolution errors:', errors);
-    }
-
-    const address = getBaseURL(resolvedParams, context);
+    const address = getBaseURL(params, context);
     const authHeader = await getAuthorizationHeader(context);
 
     // Parse parameters
-    const subject = parseSubject(resolvedParams.subject);
+    const subject = parseSubject(params.subject);
 
     // Build event payload
     const eventPayload = {
       event_timestamp: Math.floor(Date.now() / 1000),
-      namespace: resolvedParams.namespace,
-      current_level: resolvedParams.current_level
+      namespace: params.namespace,
+      current_level: params.current_level
     };
 
     // Add optional event claims
-    if (resolvedParams.previous_level) {
-      eventPayload.previous_level = resolvedParams.previous_level;
+    if (params.previous_level) {
+      eventPayload.previous_level = params.previous_level;
     }
-    if (resolvedParams.change_direction) {
-      eventPayload.change_direction = resolvedParams.change_direction;
+    if (params.change_direction) {
+      eventPayload.change_direction = params.change_direction;
     }
-    if (resolvedParams.initiating_entity) {
-      eventPayload.initiating_entity = resolvedParams.initiating_entity;
+    if (params.initiating_entity) {
+      eventPayload.initiating_entity = params.initiating_entity;
     }
-    if (resolvedParams.reason_admin) {
-      eventPayload.reason_admin = parseReason(resolvedParams.reason_admin);
+    if (params.reason_admin) {
+      eventPayload.reason_admin = parseReason(params.reason_admin);
     }
-    if (resolvedParams.reason_user) {
-      eventPayload.reason_user = parseReason(resolvedParams.reason_user);
+    if (params.reason_user) {
+      eventPayload.reason_user = parseReason(params.reason_user);
     }
 
     // Build the SET payload (reserved claims will be added during signing)
     const setPayload = {
-      aud: resolvedParams.audience,
+      aud: params.audience,
       sub_id: subject,  // CAEP 3.0 format
       events: {
         [ASSURANCE_LEVEL_CHANGE_EVENT]: eventPayload
