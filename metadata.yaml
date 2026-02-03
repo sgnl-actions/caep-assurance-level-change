@@ -23,8 +23,7 @@ inputs:
     description: Assurance level namespace (RFC8176, RFC6711, ISO-IEC-29115, NIST-IAL, NIST-AAL, NIST-FAL)
     required: true
     validation:
-      min: 1
-      max: 100
+      enum: ["RFC8176", "RFC6711", "ISO-IEC-29115", "NIST-IAL", "NIST-AAL", "NIST-FAL"]
 
   current_level:
     type: text
@@ -47,7 +46,7 @@ inputs:
     description: Direction of the assurance level change (increase or decrease)
     required: false
     validation:
-      max: 20
+      enum: ["increase", "decrease"]
 
   initiating_entity:
     type: text
