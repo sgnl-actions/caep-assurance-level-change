@@ -1,4 +1,4 @@
-name: CAEP Assurance Level Change
+name: caep-assurance-level-change
 description: Transmits a Continuous Access Evaluation Protocol (CAEP) Assurance Level Change event as a Security Event Token (SET) to a specified endpoint
 
 inputs:
