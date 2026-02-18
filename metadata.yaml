@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/sgnl-actions/schemas/main/metadata.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/sgnl-actions/schemas/main/metadata.schema.json to the metadata
 name: caep-assurance-level-change
 description: Transmits a Continuous Access Evaluation Protocol (CAEP) Assurance Level Change event as a Security Event Token (SET) to a specified endpoint
 
