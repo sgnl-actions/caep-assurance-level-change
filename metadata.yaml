@@ -21,18 +21,11 @@ inputs:
 
   namespace:
     type: text
-    description: Assurance level namespace (RFC8176, RFC6711, ISO-IEC-29115, NIST-IAL, NIST-AAL, NIST-FAL)
+    description: Assurance level namespace (RFC8176, RFC6711, ISO-IEC-29115, NIST-IAL, NIST-AAL, NIST-FAL, or custom URI)
     required: true
     validation:
-      enum:
-        [
-          "RFC8176",
-          "RFC6711",
-          "ISO-IEC-29115",
-          "NIST-IAL",
-          "NIST-AAL",
-          "NIST-FAL",
-        ]
+      min: 1
+      max: 500
 
   current_level:
     type: text
@@ -59,10 +52,17 @@ inputs:
 
   initiating_entity:
     type: text
-    description: Entity that initiated the assurance level change (optional)
+    description: Entity that initiated the assurance level change (admin, user, policy, system)
     required: false
     validation:
       max: 100
+
+  event_timestamp:
+    type: text
+    description: Unix timestamp (seconds) when the event occurred (defaults to current time)
+    required: false
+    validation:
+      max: 20
 
   reason_admin:
     type: text
