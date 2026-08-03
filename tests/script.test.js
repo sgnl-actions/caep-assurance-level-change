@@ -93,8 +93,8 @@ describe('CAEP Assurance Level Change Transmitter', () => {
         previous_level: 'nist-aal1',
         change_direction: 'increase',
         initiating_entity: 'policy',
-        reason_admin: 'MFA requirement triggered',
-        reason_user: 'Additional authentication required'
+        reason_admin: '{"en":"MFA requirement triggered"}',
+        reason_user: '{"en":"Additional authentication required"}'
       };
 
       await script.invoke(params, mockContext);
@@ -110,12 +110,74 @@ describe('CAEP Assurance Level Change Transmitter', () => {
               previous_level: 'nist-aal1',
               change_direction: 'increase',
               initiating_entity: 'policy',
-              reason_admin: 'MFA requirement triggered',
-              reason_user: 'Additional authentication required'
+              reason_admin: { en: 'MFA requirement triggered' },
+              reason_user: { en: 'Additional authentication required' }
             })
           }
         })
       );
+    });
+
+    test('should auto-wrap plain string reasons as i18n objects', async () => {
+      const params = {
+        ...validParams,
+        reason_admin: 'Plain admin reason',
+        reason_user: 'Plain user reason'
+      };
+
+      await script.invoke(params, mockContext);
+
+      expect(signSET).toHaveBeenCalledWith(
+        mockContext,
+        expect.objectContaining({
+          events: {
+            'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change': expect.objectContaining({
+              reason_admin: { en: 'Plain admin reason' },
+              reason_user: { en: 'Plain user reason' }
+            })
+          }
+        })
+      );
+    });
+
+    test('should not include reason fields when not provided', async () => {
+      await script.invoke(validParams, mockContext);
+
+      const setPayload = signSET.mock.calls[0][1];
+      const eventPayload = setPayload.events['https://schemas.openid.net/secevent/caep/event-type/assurance-level-change'];
+      expect(eventPayload.reason_admin).toBeUndefined();
+      expect(eventPayload.reason_user).toBeUndefined();
+    });
+
+    test('should use custom event_timestamp when provided', async () => {
+      const params = {
+        ...validParams,
+        event_timestamp: '1700000000'
+      };
+
+      await script.invoke(params, mockContext);
+
+      expect(signSET).toHaveBeenCalledWith(
+        mockContext,
+        expect.objectContaining({
+          events: {
+            'https://schemas.openid.net/secevent/caep/event-type/assurance-level-change': expect.objectContaining({
+              event_timestamp: 1700000000
+            })
+          }
+        })
+      );
+    });
+
+    test('should default event_timestamp to current time when not provided', async () => {
+      const before = Math.floor(Date.now() / 1000);
+      await script.invoke(validParams, mockContext);
+      const after = Math.floor(Date.now() / 1000);
+
+      const setPayload = signSET.mock.calls[0][1];
+      const eventPayload = setPayload.events['https://schemas.openid.net/secevent/caep/event-type/assurance-level-change'];
+      expect(eventPayload.event_timestamp).toBeGreaterThanOrEqual(before);
+      expect(eventPayload.event_timestamp).toBeLessThanOrEqual(after);
     });
 
     test('should parse i18n reason_admin JSON format', async () => {
